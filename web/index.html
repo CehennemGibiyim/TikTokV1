@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="tr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sandık Radarı</title><link rel="stylesheet" href="styles.css">
+</head><body>
+<header><h1>🎯 Sandık Radarı</h1><span id="status" class="st">bağlanıyor…</span></header>
+<nav id="tabs"></nav>
+<section class="filters">
+  <label>Min jeton <input id="minCoins" type="number" min="0"></label>
+  <label>Min oran <input id="minRatio" type="number" step="0.1" min="0"></label>
+  <label>Kalan ≤ sn <input id="maxTime" type="number" min="0"></label>
+  <label>Açılıştan sonra gizle (sn) <input id="hideLate" type="number" min="0" value="60"></label>
+  <label><input id="viewersLtPeople" type="checkbox"> izleyici &lt; kişi</label>
+  <label>Sırala <select id="sort"><option value="opens">açılış</option><option value="coins">jeton</option><option value="ratio">oran</option><option value="viewers">izleyici</option></select></label>
+  <label><input id="desc" type="checkbox"> ters</label>
+  <label><input id="sound" type="checkbox"> ses</label>
+</section>
+<main id="list"></main>
+<script src="config.js"></script><script src="filters.js"></script><script src="app.js"></script>
+</body></html>

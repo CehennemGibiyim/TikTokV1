@@ -1,0 +1,9 @@
+{
+  "name": "sandik-radar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TikTok LIVE sandık/zarf/portal radarı: tarayıcı + statik panel + Windows localhost",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node src/server.js", "scan": "node src/scanner.js", "test": "node --test" },
+  "dependencies": { "tiktok-live-connector": "^2.5.0" }
+}
