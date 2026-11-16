@@ -7,7 +7,9 @@
     { id: 'chest', label: 'Sandık', filter: { kind: 'chest' } },
     { id: 'letter', label: 'Zarf', filter: { kind: 'letter' } },
     { id: 'portal', label: 'Portal', filter: { kind: 'portal' } },
-    { id: 'ratio', label: 'Yüksek oran', filter: { minRatio: 1.75 } },
+    { id: 'ratio2', label: 'Oran ≥ 2', filter: { minRatio: 2 } },
+    { id: 'ratio4', label: 'Oran ≥ 4', filter: { minRatio: 4 } },
+    { id: 'kismet', label: 'Kısmet (oran ≥ 7)', filter: { minRatio: 7 } },
     { id: 'fresh', label: 'Yeni', filter: { maxAge: 120 } },
   ];
 

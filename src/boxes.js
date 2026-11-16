@@ -1,6 +1,7 @@
 'use strict';
 // TikTok kutu olayını (envelope / superFanBox) tek şemaya çevirir. Değer uydurmaz.
-const KIND = { 9: 'portal', 19: 'chest', 20: 'chest' }; // diğerleri: zarf
+const KIND = { 9: 'portal', 19: 'fan', 20: 'chest', 21: 'letter' };
+// 19 = süper fan kutusu (sandık değil, ayrı pay mantığı); eşlenmeyen kod 'letter' sayılır.
 
 const num = (...vals) => {
   for (const v of vals) {
