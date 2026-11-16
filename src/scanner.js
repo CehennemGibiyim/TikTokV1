@@ -21,6 +21,8 @@ class Scanner extends EventEmitter {
     this.seen = new Set();
     this.boxes = [];
     this.variant = 0;
+    this.live = new Map();      // keşifte görülen canlı yayınlar
+    this.boxCount = new Map();  // yayıncı -> yakalanan kutu
     this.stats = { sessions: 0, boxes: 0, errors: 0, lastError: '' };
     try {
       this.boxes = JSON.parse(fs.readFileSync(this.file, 'utf8')).boxes || [];
@@ -55,8 +57,10 @@ class Scanner extends EventEmitter {
       const u = String(c.uniqueId || c.unique_id || c.username || (c.owner && c.owner.uniqueId) || '').replace(/^@/, '').toLowerCase();
       if (!u) continue;
       this.pool.set(u, { roomId: String(c.roomId || c.room_id || ''), seenAt: Date.now() });
+      this.live.set(u, { username: u, roomId: String(c.roomId || ''), region: String(c.region || ''), seenAt: Date.now() });
     }
     while (this.pool.size > this.o.maxPool) this.pool.delete(this.pool.keys().next().value);
+    this.save();
   }
 
   tick() {
@@ -64,7 +68,7 @@ class Scanner extends EventEmitter {
     this.attempts = this.attempts.filter((t) => now - t < 3600e3);
     if (this.stopped || this.rooms.size >= this.o.maxRooms || this.attempts.length >= this.o.hourBudget) return;
     // taze oda kimliği olanlar (yayında oldukları kesin) önce
-    const cand = [...this.pool].filter(([u]) => !this.rooms.has(u) && !(this.backoff.get(u)?.until > now))
+    const cand = [...this.pool].filter(([u, v]) => v.seenAt && now - v.seenAt < 900e3 && !this.rooms.has(u) && !(this.backoff.get(u)?.until > now))
       .sort((a, b) => b[1].seenAt - a[1].seenAt)[0];
     if (cand) { this.attempts.push(now); this.session(cand[0], cand[1]); }
   }
@@ -79,6 +83,7 @@ class Scanner extends EventEmitter {
       clearTimeout(timer);
       try { c.disconnect(); } catch { /* zaten kapalı */ }
       this.rooms.delete(username);
+      this.save();
       if (!ok) { // bağlanılamayan odaya ceza: 10 dk, 20, 40, en çok 60
         const step = Math.min(60, (this.backoff.get(username)?.step || 5) * 2);
         this.backoff.set(username, { step, until: Date.now() + step * 60e3 });
@@ -87,13 +92,14 @@ class Scanner extends EventEmitter {
       this.emit('session', { username, why, ok });
     };
     const timer = setTimeout(() => end('süre doldu'), this.o.watchSec * 1000);
-    this.rooms.set(username, { end });
+    const rec = { end, viewers: 0, startedAt: Date.now() };
+    this.rooms.set(username, rec);
     this.stats.sessions++;
     const onBox = (d) => { ok = true; this.add(normalize(username, d, { roomId: meta.roomId, viewers })); };
     c.on('connected', () => { ok = true; });
     c.on('envelope', onBox);
     c.on('superFanBox', onBox);
-    c.on('roomUser', (d) => { viewers = Number(d && d.viewerCount) || viewers; });
+    c.on('roomUser', (d) => { viewers = Number(d && d.viewerCount) || viewers; rec.viewers = viewers; });
     c.on('streamEnd', () => end('yayın bitti'));
     c.on('disconnected', () => end('koptu'));
     c.on('error', () => {});
@@ -106,6 +112,7 @@ class Scanner extends EventEmitter {
     this.boxes.unshift(box);
     this.boxes.length = Math.min(this.boxes.length, this.o.keep);
     this.stats.boxes++;
+    this.boxCount.set(box.username, (this.boxCount.get(box.username) || 0) + 1);
     this.emit('box', box);
     this.save();
     if (this.o.ntfyTopic) {
@@ -118,7 +125,13 @@ class Scanner extends EventEmitter {
     const write = () => {
       try {
         fs.mkdirSync(this.o.dataDir, { recursive: true });
-        fs.writeFileSync(this.file, JSON.stringify({ scannedAt: new Date().toISOString(), boxes: this.boxes }));
+        const at = new Date().toISOString(), now = Date.now();
+        fs.writeFileSync(this.file, JSON.stringify({ scannedAt: at, boxes: this.boxes }));
+        const streamers = [...this.live.values()].filter((v) => now - v.seenAt < 900e3).map((v) => {
+          const r = this.rooms.get(v.username);
+          return { ...v, watching: !!r, viewers: r ? r.viewers : 0, boxes: this.boxCount.get(v.username) || 0 };
+        });
+        fs.writeFileSync(path.join(this.o.dataDir, 'live.json'), JSON.stringify({ scannedAt: at, stats: this.stats, streamers }));
       } catch (e) { this.fail(e); }
     };
     if (now) write(); else this._w = setTimeout(write, 1500);
