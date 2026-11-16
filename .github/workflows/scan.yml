@@ -1,0 +1,22 @@
+name: 📡 Tarayıcı
+on:
+  schedule: [{ cron: '0 */4 * * *' }]
+  workflow_dispatch:
+permissions: { contents: write }
+concurrency: { group: scanner, cancel-in-progress: false }
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 250
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci --omit=dev
+      - name: Veriyi 5 dakikada bir commit et
+        run: |
+          git config user.name "radar-bot"; git config user.email "radar-bot@users.noreply.github.com"
+          ( while true; do sleep 300; git add data/boxes.json; git diff --cached --quiet || { git commit -m "kutu verisi" && git pull --rebase -q && git push -q; }; done ) &
+      - run: node src/scanner.js --minutes=230
+        env: { NTFY_TOPIC: '${{ secrets.NTFY_TOPIC }}', NTFY_KEY: '${{ secrets.NTFY_KEY }}' }
+      - run: git add data/boxes.json; git diff --cached --quiet || { git commit -m "kutu verisi (son)" && git pull --rebase -q && git push -q; }
