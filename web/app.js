@@ -3,6 +3,7 @@
   const F = window.Filters, CFG = window.RADAR_CONFIG || {};
   const $ = (id) => document.getElementById(id);
   const boxes = new Map(); // id -> kutu
+  let streams = []; // keşfedilen canlı yayınlar (data/live.json)
   const ids = ['minCoins', 'minRatio', 'maxTime', 'hideLate', 'sort'];
   const saved = (() => { try { return JSON.parse(localStorage.getItem('radar') || '{}'); } catch { return {}; } })();
   const st = { tab: saved.tab || 'chest', ...saved };
@@ -26,7 +27,13 @@
   function render() {
     const p = params(), now = Date.now(), all = [...boxes.values()];
     const c = F.counts(all, p, now);
-    $('tabs').innerHTML = F.TABS.map((t) => `<button data-t="${t.id}" class="${t.id === st.tab ? 'on' : ''}">${t.label}<b>${c[t.id]}</b></button>`).join('');
+    $('tabs').innerHTML = F.TABS.map((t) => `<button data-t="${t.id}" class="${t.id === st.tab ? 'on' : ''}">${t.label}<b>${c[t.id]}</b></button>`).join('') + `<button data-t="streams" class="${st.tab === 'streams' ? 'on' : ''}">Yayınlar<b>${streams.length}</b></button>`;
+    if (st.tab === 'streams') {
+      $('list').innerHTML = streams.length ? streams.map((s) => `<div class="card"><div class="row"><span class="user">@${esc(s.username)}</span><span class="kind">${esc(s.region || '')}</span></div>
+      <div class="meta">${s.watching ? '🟢 dinleniyor' : '🔴 canlı'} · ${s.viewers ? s.viewers + ' izleyici · ' : ''}${s.boxes} kutu · ${Math.max(0, Math.round((now - s.seenAt) / 60000))} dk önce · <a href="https://www.tiktok.com/@${esc(s.username)}/live" target="_blank" rel="noopener">TikTok'ta aç</a></div></div>`).join('')
+        : '<div class="empty">Henüz yayın bulunamadı. Tarayıcı çalışınca burada listelenir.</div>';
+      return;
+    }
     const rows = F.apply(all, { ...p, tab: st.tab }, now);
     $('list').innerHTML = rows.length ? rows.map((b) => {
       const cls = b.left > 60 ? 'ok' : b.left > 20 ? 'mid' : 'hot';
@@ -48,6 +55,7 @@
       const r = await fetch('data/boxes.json?t=' + Date.now(), { cache: 'no-store' });
       const d = await r.json();
       (d.boxes || []).forEach(add);
+      try { streams = (await (await fetch('data/live.json?t=' + Date.now(), { cache: 'no-store' })).json()).streamers || []; } catch { /* live.json yok */ }
       status(d.scannedAt ? 'veri: ' + new Date(d.scannedAt).toLocaleTimeString('tr') : 'henüz veri yok', 'live');
       render();
     } catch { status('veri okunamadı', 'bad'); }
