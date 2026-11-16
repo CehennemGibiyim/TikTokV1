@@ -16,7 +16,7 @@ jobs:
       - name: Veriyi 5 dakikada bir commit et
         run: |
           git config user.name "radar-bot"; git config user.email "radar-bot@users.noreply.github.com"
-          ( while true; do sleep 300; git add data/boxes.json; git diff --cached --quiet || { git commit -m "kutu verisi" && git pull --rebase -q && git push -q; }; done ) &
+          ( while true; do sleep 300; git add data/boxes.json data/live.json; git diff --cached --quiet || { git commit -m "kutu verisi" && git pull --rebase -q && git push -q; }; done ) &
       - run: node src/scanner.js --minutes=230
         env: { NTFY_TOPIC: '${{ secrets.NTFY_TOPIC }}', NTFY_KEY: '${{ secrets.NTFY_KEY }}' }
-      - run: git add data/boxes.json; git diff --cached --quiet || { git commit -m "kutu verisi (son)" && git pull --rebase -q && git push -q; }
+      - run: git add data/boxes.json data/live.json; git diff --cached --quiet || { git commit -m "kutu verisi (son)" && git pull --rebase -q && git push -q; }
