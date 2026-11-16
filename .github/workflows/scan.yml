@@ -2,6 +2,8 @@ name: 📡 Tarayıcı
 on:
   schedule: [{ cron: '0 */4 * * *' }]
   workflow_dispatch:
+    inputs:
+      minutes: { description: 'Dakika (test için kısalt)', default: '230' }
 permissions: { contents: write }
 concurrency: { group: scanner, cancel-in-progress: false }
 jobs:
@@ -13,10 +15,19 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci --omit=dev
-      - name: Veriyi 5 dakikada bir commit et
-        run: |
-          git config user.name "radar-bot"; git config user.email "radar-bot@users.noreply.github.com"
-          ( while true; do sleep 300; git add data/boxes.json data/live.json; git diff --cached --quiet || { git commit -m "kutu verisi" && git pull --rebase -q && git push -q; }; done ) &
-      - run: node src/scanner.js --minutes=230
+      # Arka plan commit döngüsü ve tarayıcı AYNI adımda çalışmalı: Actions bir adım
+      # bitince o adımın arka plan süreçlerini de kapatıyor, ayrı adımda "&" işe yaramıyor.
+      - name: Tara ve 5 dakikada bir commit et
         env: { NTFY_TOPIC: '${{ secrets.NTFY_TOPIC }}', NTFY_KEY: '${{ secrets.NTFY_KEY }}' }
-      - run: git add data/boxes.json data/live.json; git diff --cached --quiet || { git commit -m "kutu verisi (son)" && git pull --rebase -q && git push -q; }
+        run: |
+          git config user.name "radar-bot"
+          git config user.email "radar-bot@users.noreply.github.com"
+          commit() {
+            git add data/boxes.json data/live.json
+            git diff --cached --quiet || { git commit -q -m "kutu verisi $(date -u +%H:%M)" && git pull --rebase -q && git push -q; }
+          }
+          ( while true; do sleep 300; commit; done ) &
+          watcher=$!
+          node src/scanner.js --minutes="${{ github.event.inputs.minutes || '230' }}"
+          kill "$watcher" 2>/dev/null || true
+          commit
